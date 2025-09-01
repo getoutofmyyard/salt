@@ -1,0 +1,1160 @@
+{# templates/tor_default.j2 #}
+{%- set hostname = grains.id -%}
+{%- set structured_config = '/tmp/' ~ hostname ~ '.yaml' -%}
+{%- import_yaml structured_config as pillar -%}
+{#                              #}
+{#     Hostname Configuration   #}
+{#     ----------------------   #}
+{#                              #}
+hostname {{ hostname }}
+!
+{#                              #}
+{#     VLAN Configuration       #}
+{#     ------------------       #}
+{#
+{# =================== Inputs & toggles =================== #}
+{%- set desired = pillar.get('vlans', {}) %}
+{%- set current_ids = grains.get('eos_vlans', []) %}
+{%- set protected_ids = pillar.get('vlans_protected', [1]) %}
+{%- set remove_svis_with_vlans = pillar.get('remove_svis_with_vlans', True) %}
+{%- set svi_manage_only = pillar.get('svi_manage_only', False) %} {# if True, remove SVIs for desired VLANs without an SVI stanza #}
+
+{# =================== Compute sets =================== #}
+{%- set desired_ids = [] %}
+{%- for k in desired %}
+  {%- do desired_ids.append(k|int) %}
+{%- endfor %}
+
+{%- set delete_ids = [] %}
+{%- for vid in current_ids %}
+  {%- if (vid not in desired_ids) and (vid not in protected_ids) %}
+    {%- do delete_ids.append(vid) %}
+  {%- endif %}
+{%- endfor %}
+
+{# =================== Remove unmanaged VLANs (+ optional SVIs) =================== #}
+{%- for vid in delete_ids|sort %}
+no vlan {{ vid }}
+{%- if remove_svis_with_vlans %}
+no interface Vlan{{ vid }}
+{%- endif %}
+{%- endfor %}
+
+{# =================== Enforce desired VLANs =================== #}
+{%- for vlan, config in desired|dictsort %}
+vlan {{ vlan }}
+{%- if config.get('name') %}
+  name {{ config['name'] }}
+{%- endif %}
+!
+{%- endfor %}
+!
+{#                               #}
+{#     Interface Configuration   #}
+{#     -----------------------   #}
+{#                               #}
+{%- for interface, config in pillar.get('interfaces', {}).items() %}
+interface {{ interface }}
+{%- if config.get('shutdown') and config['shutdown'] == 'True' %}
+  shutdown
+{%- elif config.get('shutdown') and config['shutdown'] == 'False' %}
+  no shutdown
+{%- endif %}
+{%- if config.get('description') %}
+  description {{ config['description'] }}
+{%- endif %}
+{%- if config.get('interface_type') == 'layer2' and config.get('switchport_mode') == 'access' %}
+  switchport
+  switchport mode access
+  {%- if config.get('access_vlan') %}
+  switchport access vlan {{ config['access_vlan'] }}
+  {%- endif %}
+  {%- if config.get('channel_group') %}
+  channel-group {{ config['channel_group'] }} mode active
+  {%- endif %}
+  {%- if config.get('mtu') %}
+  mtu {{ config['mtu'] }}
+  {%- endif %}
+  {%- if config.get('mlag') %}
+  mlag {{ config['mlag'] }}
+  {%- endif %}
+  {%- if config.get('portfast') and config.get('portfast') == 'True' %}
+  spanning-tree portfast
+  {%- elif config.get('portfast') and config.get('portfast') == 'False' %}
+  no spanning-tree portfast
+  {%- endif %}
+  {%- if config.get('bpduguard') and config.get('bpduguard') == 'True' %}
+  spanning-tree bpduguard enable
+  {%- elif config.get('bpduguard') and config.get('bpduguard') == 'False' %}
+  spanning-tree bpduguard enable
+  {%- endif %}
+  {%- if config.get('rootguard') and config.get('rootguard') == 'True' %}
+  spanning-tree guard root
+  {%- elif config.get('rootguard') and config.get('rootguard') == 'False' %}
+  no spanning-tree guard root
+  {%- endif %}
+{%- elif config.get('interface_type') == 'layer2' and config.get('switchport_mode') == 'trunk' %}
+  switchport
+  switchport mode trunk
+  {%- if config.get('channel_group') %}
+  channel-group {{ config['channel_group'] }} mode active
+  {%- endif %}
+  {%- if config.get('mtu') %}
+  mtu {{ config['mtu'] }}
+  {%- endif %}
+  {%- if config.get('mlag') %}
+  mlag {{ config['mlag'] }}
+  {%- endif %}
+  {%- if config.get('bpduguard') and config.get('bpduguard') == 'True' %}
+  spanning-tree bpduguard enable
+  {%- elif config.get('bpduguard') and config.get('bpduguard') == 'False' %}
+  spanning-tree bpduguard enable
+  {%- endif %}
+  {%- if config.get('rootguard') and config.get('rootguard') == 'True' %}
+  spanning-tree guard root
+  {%- elif config.get('rootguard') and config.get('rootguard') == 'False' %}
+  no spanning-tree guard root
+  {%- endif %}
+{%- elif config.get('interface_type') == 'layer3' %}
+  no switchport
+  {%- if config.get('vrf') %}
+  vrf {{ config['vrf'] }}
+  {%- endif %}
+  {%- if config.get('ip_address') %}
+  ip address {{ config['ip_address'] }}
+  {%- endif %}
+  {%- if config.get('ip_address_virtual') %}
+  ip address virtual {{ config['ip_address_virtual'] }}
+  {%- endif %}
+  {%- if config.get('ip_virtual_router') %}
+  ip virtual-router address {{ config['ip_virtual_router'] }}
+  {%- endif %}
+  {%- if config.get('autostate') and config.get('autostate') == 'True' %}
+  autostate
+  {%- endif %}
+  {%- if config.get('autostate') and config.get('autostate') == 'False' %}
+  no autostate
+  {%- endif %}
+  {%- if config.get('mtu') %}
+  mtu {{ config['mtu'] }}
+  {%- endif %}
+{%- elif interface  == 'Vxlan1' %}
+  {%- if config.get('source_interface') %}
+  vxlan source-interface {{ config['source_interface'] }}
+  {%- endif %}
+  {%- if config.get('udp_port') %}
+  vxlan udp-port {{ config['udp_port'] }}
+  {%- endif %}
+  {%- for vlan, vni in pillar['interfaces']['Vxlan1'].get('vlans', {}).items() %}
+  vxlan vlan {{ vlan }} vni {{ vni['vni'] }}
+  {%- endfor %}
+{%- endif %}
+{%- endfor %}
+!
+{#                          #}
+{#     VRF Configuration    #}
+{#     -----------------    #}
+{#                          #}
+{%- for vrf in pillar['vrfs']  %}
+{%- if vrf %}
+vrf instance {{ vrf }}
+!
+{%- endif %}
+{%- endfor %}
+{#                          #}
+{#    MLAG Configuration    #}
+{#    ------------------    #}
+{#                          #}
+{%- set config = pillar['mlag'] %}
+{%- if (config.get('mlag') and config['mlag'].get('enabled') == 'True') or config.get('enabled') == 'True' %}
+mlag configuration
+  {%- if config.get('domain_id') %}
+  domain-id {{ config['domain_id'] }}
+  {%- endif %}
+  {%- if config.get('local_interface') %}
+  local-interface {{ config['local_interface'] }}
+  {%- endif %}
+  {%- if config.get('peer_address') %}
+  peer-address {{ config['peer_address'] }}
+  {%- endif %}
+  {%- if config.get('peer_link') %}
+  peer-link {{ config['peer_link'] }}
+  {%- endif %}
+  {%- if config.get('heartbeat_interval') and config['heartbeat_interval'].get('enabled') == 'True' and config['heartbeat_interval'].get('interval') %}
+  heartbeat-interval {{ config['heartbeat_interval']['interval'] }}
+  {%- elif config.get('heartbeat_interval') and config['heartbeat_interval'].get('enabled') == 'False' %}
+  heartbeat-interval disable
+  {%- else %}
+  heartbeat-interval 4000
+  {%- endif %}
+  {%- set rd = config.get('reload_delay', {}) %}
+  {%- if rd.get('enabled') == 'True' %}
+    {%- if rd.get('infinity') == 'True' %}
+  reload-delay infinity
+    {%- elif rd.get('seconds') %}
+  reload-delay {{ rd['seconds'] }}
+    {%- endif %}
+  {%- elif rd.get('enabled') == 'False' %}
+  no reload-delay
+  {%- endif %}
+  {%- set nmlagp = rd.get('non_mlag_ports', {}) %}
+  {%- if nmlagp.get('enabled') == 'True' %}
+    {%- if nmlagp.get('infinity') == 'True' %}
+  reload-delay non-mlag infinity
+    {%- elif nmlagp.get('seconds') %}
+  reload-delay non-mlag {{ nmlagp['seconds'] }}
+    {%- endif %}
+  {%- elif nmlagp.get('enabled') == 'False' %}
+  no reload-delay non-mlag
+  {%- endif %}
+{%- elif config.get('enabled') == 'False' %}
+no mlag configuration
+{%- endif %}
+{# ====================== PREFIX-LISTS: ENFORCE DELETIONS ====================== #}
+{%- set pl = salt['pyeapi.get_config'](config='running-config', params='section ip prefix-list') %}
+
+{%- if pl is string %}
+  {%- set raw_lines = pl.splitlines() %}
+{%- else %}
+  {%- set raw_lines = pl %}
+{%- endif %}
+
+{# Build current {name: [seq, ...]} from lines like:
+   "ip prefix-list NAME seq 10 permit 10.0.0.0/24 [ge X] [le Y]" #}
+{%- set cur = namespace(lists={}) %}
+{%- for raw in raw_lines %}
+  {%- set line = raw.lstrip() %}
+  {%- if line.startswith('- ') %}{%- set line = line[2:].lstrip() %}{%- endif %}
+  {%- if line.startswith('ip prefix-list ') %}
+    {%- set parts = line.split() %}
+    {%- if parts|length >= 6 and parts[0]=='ip' and parts[1]=='prefix-list' and parts[3]=='seq' %}
+      {%- set name = parts[2] %}
+      {%- set seq  = parts[4] %}
+      {%- set lst = cur.lists.get(name, []) %}
+      {%- if (seq|string) not in lst %}{%- do lst.append(seq|string) %}{%- endif %}
+      {%- set _ = cur.lists.update({name: lst}) %}
+    {%- endif %}
+  {%- endif %}
+{%- endfor %}
+
+{# Desired names and seqs from pillar #}
+{%- set desired = pillar.get('prefix_lists', {}) %}
+
+{# Step 1: delete entire prefix-lists not in YAML #}
+{%- for name in cur.lists.keys() %}
+  {%- if name not in desired %}
+no ip prefix-list {{ name }}
+  {%- endif %}
+{%- endfor %}
+
+{# Step 2: delete stray sequences for lists we do manage #}
+{%- for name, dev_seqs in cur.lists.items() %}
+  {%- set want = desired.get(name) %}
+  {%- if want is mapping %}
+    {%- set want_seqs = [] %}
+    {%- for seq, _cfg in want|dictsort %}
+      {%- do want_seqs.append(seq|string) %}
+    {%- endfor %}
+    {%- for seq in dev_seqs %}
+      {%- if (seq|string) not in want_seqs %}
+no ip prefix-list {{ name }} seq {{ seq }}
+      {%- endif %}
+    {%- endfor %}
+  {%- endif %}
+{%- endfor %}
+
+{# ====================== PREFIX-LISTS: RENDER (single-line) ====================== #}
+{%- for pl_name, pl_seqs in pillar.get('prefix_lists', {}).items() %}
+  {%- for seq, cfg in pl_seqs|dictsort %}
+ip prefix-list {{ pl_name }} seq {{ seq }} {{ 'permit' if cfg.get('permit') == 'True' else 'deny' }} {{ cfg['prefix'] }}{%- if cfg.get('ge') %} ge {{ cfg['ge'] }}{%- endif %}{%- if cfg.get('le') %} le {{ cfg['le'] }}{%- endif %}
+  {%- endfor %}
+{%- endfor %}
+
+{#                              #}
+{#    Route Map Configuration   #}
+{#    -----------------------   #}
+{#                              #}
+{%- set rm = salt['pyeapi.get_config'](config='running-config', params='section route-map') %}
+
+{# Normalize to a list of lines #}
+{%- if rm is string %}
+  {%- set raw_lines = rm.splitlines() %}
+{%- else %}
+  {%- set raw_lines = rm %}
+{%- endif %}
+
+{# Build current {name: [(action, seq), ...]} from device lines like:
+   'route-map NAME permit 10' #}
+{%- set cur = namespace(maps={}) %}
+{%- for raw in raw_lines %}
+  {%- set line = raw.lstrip() %}
+  {# Salt sometimes prints list bullets like "- route-map ..."; drop only the leading "- " #}
+  {%- if line.startswith('- ') %}{%- set line = line[2:].lstrip() %}{%- endif %}
+  {%- if line.startswith('route-map ') %}
+    {%- set parts = line.split() %}
+    {%- if parts|length >= 4 and parts[0] == 'route-map' %}
+      {%- set name = parts[1] %}
+      {%- set action = parts[2] %}
+      {%- set seq = parts[3] %}
+      {%- set prev = cur.maps.get(name, []) %}
+      {%- set _ = prev.append((action, seq)) %}
+      {%- set _ = cur.maps.update({name: prev}) %}
+    {%- endif %}
+  {%- endif %}
+{%- endfor %}
+
+{# Build desired {name: [(action, seq), ...]} from pillar #}
+{%- set want = namespace(maps={}) %}
+{%- for rm_name, rm_seqs in pillar.get('route_maps', {}).items() %}
+  {%- set lst = [] %}
+  {%- for seq, seqcfg in rm_seqs | dictsort %}
+    {%- set act = 'permit' if seqcfg.get('permit') == 'True' else 'deny' %}
+    {%- set _ = lst.append((act, (seq|string))) %}
+  {%- endfor %}
+  {%- set _ = want.maps.update({rm_name: lst}) %}
+{%- endfor %}
+
+{# ---- STEP 1: delete entire route-maps not present in pillar ---- #}
+{%- for name in cur.maps.keys() %}
+  {%- if name not in want.maps %}
+no route-map {{ name }}
+  {%- endif %}
+{%- endfor %}
+
+{# ---- STEP 2: for route-maps we DO manage, delete extra sequences ---- #}
+{%- for name, dev_pairs in cur.maps.items() %}
+  {%- set desired_pairs = want.maps.get(name) %}
+  {%- if desired_pairs %}
+    {%- for (act, seq) in dev_pairs %}
+      {%- if (act, seq) not in desired_pairs %}
+no route-map {{ name }} {{ act }} {{ seq }}
+      {%- endif %}
+    {%- endfor %}
+  {%- endif %}
+{%- endfor %}
+
+{%- for rm_name, rm_seqs in pillar.get('route_maps', {}).items() %}
+  {%- for seq, seqcfg in rm_seqs|dictsort %}
+route-map {{ rm_name }} {{ 'permit' if seqcfg.get('permit') == 'True' else 'deny' }} {{ seq }}
+
+  {# --- match: address (prefix-list or access-list) --- #}
+  {%- set ma = seqcfg.get('match_address', {}) -%}
+  {%- if ma.get('prefix_list') %}
+  match ip address prefix-list {{ ma['prefix_list'] }}
+  {%- elif ma.get('access_list') %}
+  match ip address {{ ma['access_list'] }}
+  {%- endif %}
+
+  {# --- match: interface --- #}
+  {%- if seqcfg.get('match_interface') %}
+  match interface {{ seqcfg['match_interface'] }}
+  {%- endif %}
+
+  {# --- match: as-path --- #}
+  {%- set mp = seqcfg.get('match_aspath', {}) -%}
+  {%- if mp.get('list') %}
+  match as-path {{ mp['list'] }}
+  {%- elif mp.get('length') %}
+    {%- set ml = mp['length'] %}
+    {%- if ml.get('ge') %}  match as-path length >= {{ ml['ge'] }}{% endif %}
+    {%- if ml.get('le') %}  match as-path length <= {{ ml['le'] }}{% endif %}
+    {%- if ml.get('eq') %}  match as-path length = {{ ml['eq'] }}{% endif %}
+  {%- endif %}
+
+  {# --- set: prepend --- #}
+  {%- set sp = seqcfg.get('set_prepend', {}) -%}
+  {%- if sp.get('asn') %}
+    {%- set times = (sp.get('repeat')|int if sp.get('repeat') else 1) %}
+  set as-path prepend{%- for _ in range(times if times>0 else 1) %} {{ sp['asn'] }}{%- endfor %}
+  {%- endif %}
+  {%- endfor %}
+{%- endfor %}
+{# ====================== BGP CONFIGURATION (ENFORCE + RENDER) ====================== #}
+{%- set bgp = pillar.get('router', {}).get('bgp', {}) -%}
+{%- if bgp %}
+
+{%- set has_evpn = bgp.get('address_family', {}).get('evpn') -%}
+{%- if has_evpn -%}
+service routing protocols model multi-agent
+{%- endif %}
+
+{%- set rb = salt['pyeapi.get_config'](config='running-config', params='section router bgp') -%}
+{%- set lines = rb if rb is sequence else rb.splitlines() -%}
+
+{%- set go = bgp.get('global_options', {}) -%}
+{%- set v4global = bgp.get('address_family', {}).get('ipv4_unicast', {}).get('global', {}) -%}
+{%- set want_peer_groups_v4 = v4global.get('peer_groups', {}) -%}
+{%- set want_neighbors = v4global.get('neighbors', {}) -%}
+{%- set want_nbr_ips = want_neighbors.keys() -%}
+{%- set want_bundles = v4global.get('vlan_aware_bundles', {}).keys() -%}
+{%- set evpn = bgp.get('address_family', {}).get('evpn', {}) -%}
+{%- set evpn_pg_names = evpn.get('neighbors', {}).keys() -%}
+{%- set want_pg_names = (want_peer_groups_v4.keys() | list) + (evpn_pg_names | list) -%}
+
+{# --- EVPN name normalization to avoid false removals (evpn-rs vs evpn_rs) --- #}
+{% set _evpn_names = (bgp.get('address_family', {}).get('evpn', {}) or {}).get('neighbors', {}).keys() %}
+{% set evpn_desired_names = [] %}
+{% for _n in _evpn_names %}
+  {% if _n not in evpn_desired_names %}{% do evpn_desired_names.append(_n) %}{% endif %}
+  {% set _alt1 = _n.replace('-', '_') %}
+  {% set _alt2 = _n.replace('_', '-') %}
+  {% if _alt1 not in evpn_desired_names %}{% do evpn_desired_names.append(_alt1) %}{% endif %}
+  {% if _alt2 not in evpn_desired_names %}{% do evpn_desired_names.append(_alt2) %}{% endif %}
+{% endfor %}
+
+{# --- YAML EVPN names we intend to activate (with -/_ aliases) for non-disruptive checks --- #}
+{% set yaml_evpn_names = [] %}
+{% for n, cfg in (bgp.get('address_family', {}).get('evpn', {}).get('neighbors', {}) or {}).items() %}
+  {% if cfg.get('activate') == 'True' %}
+    {% if n not in yaml_evpn_names %}{% do yaml_evpn_names.append(n) %}{% endif %}
+    {% set alt1 = n.replace('-', '_') %}
+    {% set alt2 = n.replace('_', '-') %}
+    {% if alt1 not in yaml_evpn_names %}{% do yaml_evpn_names.append(alt1) %}{% endif %}
+    {% if alt2 not in yaml_evpn_names %}{% do yaml_evpn_names.append(alt2) %}{% endif %}
+  {% endif %}
+{% endfor %}
+
+{%- set cur = namespace(
+  in_v4=false,
+  in_evpn=false,
+  peer_groups_v4=[],
+  peer_groups_global=[],
+  pg_members={},        
+  nbr_ips=[],
+  bundles=[],
+  evpn_activated=[]
+) -%}
+
+{%- for raw in lines %}
+  {%- set L = (raw[2:] if raw.startswith('- ') else raw) | trim -%}
+  {%- if not L %}{% continue %}{% endif %}
+
+  {%- if L.startswith('address-family ') -%}
+    {%- set cur.in_v4   = ('address-family ipv4' in L) -%}
+    {%- set cur.in_evpn = ('address-family evpn' in L) -%}
+    {%- continue -%}
+  {%- elif L == 'exit' -%}
+    {%- set cur.in_v4   = false -%}
+    {%- set cur.in_evpn = false -%}
+    {%- continue -%}
+  {%- endif -%}
+
+  {%- if (not cur.in_v4) and (not cur.in_evpn) and L.startswith('vlan-aware-bundle ') -%}
+    {%- set parts = L.split() -%}
+    {%- if parts|length >= 2 and parts[1] not in cur.bundles -%}
+      {%- do cur.bundles.append(parts[1]) -%}
+    {%- endif -%}
+  {%- endif -%}
+
+  {# Global context: peer-group declaration: "neighbor <PG> peer group" #}
+  {%- if (not cur.in_v4) and (not cur.in_evpn) and L.startswith('neighbor ') and ' peer group' in L -%}
+    {%- set toks = L.split() -%}
+    {%- if toks|length == 4 and toks[0]=='neighbor' and toks[2]=='peer' and toks[3]=='group' -%}
+      {%- set pgname = toks[1] -%}
+      {%- if pgname not in cur.peer_groups_global -%}
+        {%- do cur.peer_groups_global.append(pgname) -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endif -%}
+
+  {# Global context: membership line "neighbor <IP> peer group <PG>" (capture real memberships) #}
+  {%- if (not cur.in_v4) and (not cur.in_evpn) and L.startswith('neighbor ') and ' peer group ' in L -%}
+    {%- set toks = L.split() -%}
+    {%- if toks|length >= 5 and toks[0]=='neighbor' and toks[2]=='peer' and toks[3]=='group' -%}
+      {%- set ip = toks[1] -%}
+      {%- set pg = toks[4] -%}
+      {%- set s = cur.pg_members.get(pg, []) -%}
+      {%- if ip not in s -%}
+        {%- do s.append(ip) -%}
+        {%- set _ = cur.pg_members.update({pg: s}) -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endif -%}
+
+  {%- if cur.in_v4 -%}
+    {%- if L.startswith('neighbor ') -%}
+      {%- set toks = L.split() -%}
+      {%- if toks|length >= 3 and toks[0]=='neighbor' -%}
+        {%- set n1 = toks[1] -%}
+        {%- if toks|length >= 4 and toks[2]=='peer' and toks[3]=='group' -%}
+          {%- if n1 not in cur.peer_groups_v4 -%}
+            {%- do cur.peer_groups_v4.append(n1) -%}
+          {%- endif -%}
+          {%- if toks|length >= 5 -%}
+            {%- set pg = toks[4] -%}
+            {%- set s = cur.pg_members.get(pg, []) -%}
+            {%- if n1 not in s -%}
+              {%- do s.append(n1) -%}
+              {%- set _ = cur.pg_members.update({pg: s}) -%}
+            {%- endif -%}
+          {%- endif -%}
+        {%- else -%}
+          {%- if n1.replace('.', '').isdigit() and n1 not in cur.nbr_ips -%}
+            {%- do cur.nbr_ips.append(n1) -%}
+          {%- endif -%}
+        {%- endif -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endif -%}
+
+  {%- if cur.in_evpn and L.startswith('neighbor ') -%}
+    {%- set toks = L.split() -%}
+    {%- if toks|length >= 3 and toks[2] == 'activate' and toks[1] not in cur.evpn_activated -%}
+      {%- do cur.evpn_activated.append(toks[1]) -%}
+    {%- endif -%}
+  {%- endif -%}
+{%- endfor %}
+
+{%- set pg_with_members = cur.pg_members.keys() -%}
+
+router bgp {{ go.get('asn') }}
+
+  {# remove vlan-aware-bundles not in YAML #}
+  {%- for b in cur.bundles %}
+    {%- if b not in want_bundles %}
+  no vlan-aware-bundle {{ b }}
+    {%- endif %}
+  {%- endfor %}
+
+  {# remove global peer-groups not in YAML and not referenced by EVPN aliases, only if NO members #}
+  {%- for pg in cur.peer_groups_global %}
+    {%- if pg not in want_pg_names and pg not in evpn_desired_names and (pg not in pg_with_members or (cur.pg_members.get(pg)|default([]))|length == 0) %}
+  no neighbor {{ pg }} peer group
+    {%- endif %}
+  {%- endfor %}
+
+  address-family ipv4
+
+    {# remove AF ipv4 peer-groups not in YAML and not referenced by EVPN aliases, only if NO members #}
+    {%- for pg in cur.peer_groups_v4 %}
+      {%- if pg not in want_pg_names and pg not in evpn_desired_names and (pg not in pg_with_members or (cur.pg_members.get(pg)|default([]))|length == 0) %}
+    no neighbor {{ pg }} peer group
+      {%- endif %}
+    {%- endfor %}
+
+    {# remove stale member bindings (but NEVER for EVPN-activated PGs) #}
+    {%- for pg, ips in cur.pg_members.items() %}
+      {%- set mem = want_peer_groups_v4.get(pg, {}).get('members') -%}
+      {%- if mem is mapping -%}
+        {%- set want_ips = mem.keys() -%}
+      {%- elif mem is sequence -%}
+        {%- set want_ips = mem -%}
+      {%- else -%}
+        {%- set want_ips = [] -%}
+      {%- endif -%}
+      {%- set skip_evpn_pg = (pg in yaml_evpn_names) -%}
+      {%- for ip in ips %}
+        {%- if (ip not in want_ips) and (not skip_evpn_pg) %}
+    no neighbor {{ ip }} peer group {{ pg }}
+        {%- endif %}
+      {%- endfor %}
+    {%- endfor %}
+
+    {# remove standalone neighbors not present in YAML #}
+    {%- for ip in cur.nbr_ips %}
+      {%- if ip not in want_nbr_ips %}
+    no neighbor {{ ip }}
+      {%- endif %}
+    {%- endfor %}
+
+  exit
+
+  {# ====================== EVPN activation enforcement (only remove if NOT in YAML) ====================== #}
+  address-family evpn
+    {# Remove activation only for names in running-config that are NOT requested in YAML #}
+    {% for n in cur.evpn_activated %}
+      {% if n not in yaml_evpn_names %}
+    no neighbor {{ n }} activate
+      {% endif %}
+    {% endfor %}
+
+    {# Add activation for YAML-defined names #}
+    {% for n, cfg in (bgp.get('address_family', {}).get('evpn', {}).get('neighbors', {}) or {}).items() %}
+      {% if cfg.get('activate') == 'True' %}
+    neighbor {{ n }} activate
+      {% endif %}
+    {% endfor %}
+  exit
+
+! end router bgp
+
+
+router bgp {{ go.get('asn') }}
+
+  {%- if go.get('asn_format') == 'asdot' %}
+  bgp asn notation asdot
+  {%- elif go.get('asn_format') == 'asplain' %}
+  bgp asn notation asplain
+  {%- endif %}
+  {%- if go.get('router_id') %}
+  router-id {{ go['router_id'] }}
+  {%- endif %}
+  {%- if go.get('maximum_paths') %}
+  maximum-paths {{ go['maximum_paths'] }}
+  {%- endif %}
+
+  {%- if go.get('redistribute') %}
+    {%- for proto, rcfg in go['redistribute'].items() %}
+      {%- if rcfg.get('route_map') %}
+  redistribute {{ proto }} route-map {{ rcfg['route_map'] }}
+      {%- else %}
+  redistribute {{ proto }}
+      {%- endif %}
+    {%- endfor %}
+  {%- endif %}
+
+  {%- for bundle, bc in v4global.get('vlan_aware_bundles', {}).items() %}
+  vlan-aware-bundle {{ bundle }}
+    {% if bc.get('rd') %}
+    rd {{ bc['rd'] }}
+    {% endif %}
+    {%- if bc.get('route_target') is mapping -%}
+      {%- set rt = bc['route_target'] -%}
+      {%- if rt.get('both') == 'True' and rt.get('target') %}
+    route-target both {{ rt['target'] }}
+      {%- elif rt.get('in') == 'True' and rt.get('target') %}
+    route-target import {{ rt['target'] }}
+      {%- elif rt.get('out') == 'True' and rt.get('target') %}
+    route-target export {{ rt['target'] }}
+      {%- endif %}
+    {%- endif %}
+    {%- set vl_list = bc.get('vlans', []) -%}
+    {%- if vl_list %}
+    vlan {{ vl_list | join(',') }}
+    {%- endif %}
+  exit
+  {%- endfor %}
+
+  address-family ipv4
+
+    {# declare all peer-groups used by ipv4 or evpn #}
+    {%- for pg_name in want_pg_names %}
+    neighbor {{ pg_name }} peer group
+    {%- endfor %}
+
+    {%- for pg_name, pg in want_peer_groups_v4.items() %}
+    {%- if pg.get('description') %}
+    neighbor {{ pg_name }} description {{ pg['description'] }}
+    {%- endif %}
+    {%- set ras = pg.get('remote_as') or pg.get('remote-as') -%}
+    {%- if ras %}
+    neighbor {{ pg_name }} remote-as {{ ras }}
+    {%- endif %}
+    {%- if pg.get('timers') is mapping -%}
+      {%- set t = pg['timers'] -%}
+      {%- if t.get('hello') and t.get('hold') %}
+    neighbor {{ pg_name }} timers {{ t['hello'] }} {{ t['hold'] }}
+      {%- endif %}
+    {%- endif %}
+    {%- if pg.get('update_source') %}
+    neighbor {{ pg_name }} update-source {{ pg['update_source'] }}
+    {%- endif %}
+    {%- if pg.get('bfd') == 'True' %}
+    neighbor {{ pg_name }} bfd
+    {%- elif pg.get('bfd') == 'False' %}
+    no neighbor {{ pg_name }} bfd
+    {%- endif %}
+    {%- if pg.get('ebgp_multihop') %}
+    neighbor {{ pg_name }} ebgp-multihop {{ pg['ebgp_multihop'] }}
+    {%- endif %}
+    {%- set maxr = pg.get('maximum_routes') or pg.get('maxiumum_routes') -%}
+    {%- if maxr %}
+    neighbor {{ pg_name }} maximum-routes {{ maxr }}
+    {%- endif %}
+    {%- if pg.get('send_community') == 'True' %}
+    neighbor {{ pg_name }} send-community extended
+    {%- elif pg.get('send_community') == 'False' %}
+    no neighbor {{ pg_name }} send-community
+    {%- endif %}
+    {%- if pg.get('route_map') is mapping and pg['route_map'].get('name') and pg['route_map'].get('direction') %}
+    neighbor {{ pg_name }} route-map {{ pg['route_map']['name'] }} {{ pg['route_map']['direction'] }}
+    {%- endif %}
+
+    {% set members_raw = pg.get('members') %}
+    {% if members_raw is mapping %}
+      {% for ip, m in members_raw.items() %}
+        {% set m = m or {} %}
+neighbor {{ ip }} peer group {{ pg_name }}
+        {% if m.get('description') %}
+neighbor {{ ip }} description {{ m['description'] }}
+        {% endif %}
+        {% if m.get('send_community') == 'True' %}
+neighbor {{ ip }} send-community extended
+        {% elif m.get('send_community') == 'False' %}
+no neighbor {{ ip }} send-community
+        {% endif %}
+        {% if m.get('bfd') == 'True' %}
+neighbor {{ ip }} bfd
+        {% elif m.get('bfd') == 'False' %}
+no neighbor {{ ip }} bfd
+        {% endif %}
+        {% if m.get('maximum_routes') %}
+neighbor {{ ip }} maximum-routes {{ m['maximum_routes'] }}
+        {% endif %}
+        {% if m.get('ebgp_multihop') %}
+neighbor {{ ip }} ebgp-multihop {{ m['ebgp_multihop'] }}
+        {% endif %}
+        {% if m.get('timers') is mapping %}
+          {% set mt = m['timers'] %}
+          {% if mt.get('hello') and mt.get('hold') %}
+neighbor {{ ip }} timers {{ mt['hello'] }} {{ mt['hold'] }}
+          {% endif %}
+        {% endif %}
+      {% endfor %}
+    {% elif members_raw is sequence %}
+      {% for ip in members_raw %}
+neighbor {{ ip }} peer group {{ pg_name }}
+      {% endfor %}
+    {% endif %}
+    {%- endfor %}
+
+    {%- for nbr, cfg in v4global.get('neighbors', {}).items() %}
+    {%- set ras = cfg.get('remote_as') or cfg.get('remote-as') -%}
+    {%- if ras %}
+    neighbor {{ nbr }} remote-as {{ ras }}
+    {%- endif %}
+    {%- if cfg.get('description') %}
+    neighbor {{ nbr }} description {{ cfg['description'] }}
+    {%- endif %}
+    {%- if cfg.get('timers') is mapping -%}
+      {%- set t = cfg['timers'] -%}
+      {%- if t.get('hello') and t.get('hold') %}
+    neighbor {{ nbr }} timers {{ t['hello'] }} {{ t['hold'] }}
+      {%- endif %}
+    {%- endif %}
+    {%- if cfg.get('update_source') %}
+    neighbor {{ nbr }} update-source {{ cfg['update_source'] }}
+    {%- endif %}
+    {%- if cfg.get('bfd') == 'True' %}
+    neighbor {{ nbr }} bfd
+    {%- elif cfg.get('bfd') == 'False' %}
+    no neighbor {{ nbr }} bfd
+    {%- endif %}
+    {%- if cfg.get('ebgp_multihop') %}
+    neighbor {{ nbr }} ebgp-multihop {{ cfg['ebgp_multihop'] }}
+    {%- endif %}
+    {%- if cfg.get('maximum_routes') %}
+    neighbor {{ nbr }} maximum-routes {{ cfg['maximum_routes'] }}
+    {%- endif %}
+    {%- if cfg.get('send_community') == 'True' %}
+    neighbor {{ nbr }} send-community extended
+    {%- elif cfg.get('send_community') == 'False' %}
+    no neighbor {{ nbr }} send-community
+    {%- endif %}
+    {%- if cfg.get('route_map') is mapping and cfg['route_map'].get('name') and cfg['route_map'].get('direction') %}
+    neighbor {{ nbr }} route-map {{ cfg['route_map']['name'] }} {{ cfg['route_map']['direction'] }}
+    {%- endif %}
+    {%- endfor %}
+
+  exit
+
+  {%- if evpn %}
+router bgp {{ go.get('asn') }}
+  address-family evpn
+    {%- for n, cfg in evpn.get('neighbors', {}).items() %}
+      {%- if cfg.get('activate') == 'True' %}
+    neighbor {{ n }} activate
+      {%- else %}
+    no neighbor {{ n }} activate
+      {%- endif %}
+    {%- endfor %}
+  exit
+  {%- endif %}
+
+! end router bgp
+{%- endif %}
+{# ===================== OSPF (EOS) ===================== #}
+{%- set ospf = pillar.get('router', {}).get('ospf', {}) -%}
+{%- if ospf %}
+{%- set pid = ospf.get('process_id', '1') %}
+{%- set rid = ospf.get('router_id') %}
+{%- set passive_default = ospf.get('passive_interface_default') == 'True' %}
+{%- set max_lsa = ospf.get('max_lsa') %}
+{%- set distance = ospf.get('distance') %}
+{%- set log_adj = ospf.get('log_adjacency_changes') == 'True' %}
+{%- set ref_bw = ospf.get('auto_cost_reference_bandwidth') %}
+{%- set redist = ospf.get('redistribute', {}) %}
+{%- set definfo = ospf.get('default_information', {}) %}
+
+{# ---- Collate desired interface configuration ---- #}
+{%- set desired_if = {} %}
+{%- for ifname, icfg in (ospf.get('interfaces', {}) or {}).items() %}
+  {%- set cur = desired_if.get(ifname, {}) %}
+  {%- set _ = cur.update(icfg or {}) %}
+  {%- set _ = desired_if.update({ifname: cur}) %}
+{%- endfor %}
+{%- for area_id, acfg in (ospf.get('areas', {}) or {}).items() %}
+  {%- for ifname, icfg in (acfg.get('interfaces', {}) or {}).items() %}
+    {%- set cur = desired_if.get(ifname, {}) %}
+    {%- set _ = cur.update({'area': area_id}) %}
+    {%- set _ = cur.update(icfg or {}) %}
+    {%- set _ = desired_if.update({ifname: cur}) %}
+  {%- endfor %}
+{%- endfor %}
+
+{%- set desired_areas = ospf.get('areas', {}) or {} %}
+{%- set desired_vls = ospf.get('virtual_links', []) or [] %}
+
+{# ---- Read current running-config for OSPF sections ---- #}
+{%- set rtr_txt = salt['pyeapi.get_config'](config='running-config', params='section router ospf') %}
+{%- set rtr_lines = rtr_txt if rtr_txt is sequence else rtr_txt.splitlines() %}
+{%- set if_txt = salt['pyeapi.get_config'](config='running-config', params='section interface') %}
+{%- set if_lines = if_txt if if_txt is sequence else if_txt.splitlines() %}
+
+{# Parse router ospf: passive default/overrides, area flags, default-information, virtual-links #}
+{%- set cur_passive = namespace(default=False, passive=set(), no_passive=set()) %}
+{%- set cur_areas = namespace(stub=set(), nssa=set(), nssa_no_summary=set(), stub_no_summary=set(),
+                              nssa_no_redist=set(), nssa_dio=set()) %}
+{%- set cur_definfo = namespace(orig=False) %}
+{%- set cur_vls = namespace(items=[]) %}
+{%- set in_router = False %}
+{%- for raw in rtr_lines %}
+  {%- set L = (raw[2:] if raw.startswith('- ') else raw) | trim %}
+  {%- if not L %}{% continue %}{% endif %}
+  {%- if L.startswith('router ospf ') %}
+    {%- set in_router = (L.split()|length >= 3 and L.split()[2] == pid) %}
+    {%- continue %}
+  {%- endif %}
+  {%- if not in_router %}{% continue %}{% endif %}
+
+  {# passive default + per-interface overrides #}
+  {%- if L == 'passive-interface default' %}
+    {%- set cur_passive.default = True %}
+  {%- elif L == 'no passive-interface default' %}
+    {%- set cur_passive.default = False %}
+  {%- elif L.startswith('passive-interface ') and L != 'passive-interface default' %}
+    {%- do cur_passive.passive.add(L.split()[1]) %}
+  {%- elif L.startswith('no passive-interface ') and L != 'no passive-interface default' %}
+    {%- do cur_passive.no_passive.add(L.split()[2] if L.split()|length>2 else L.split()[1]) %}
+  {%- endif %}
+
+  {# area flags/virtual-links #}
+  {%- if L.startswith('area ') %}
+    {%- set toks = L.split() %}
+    {%- if toks|length >= 3 %}
+      {%- set area_id = toks[1] %}
+      {%- if toks[2]=='stub' %}
+        {%- do cur_areas.stub.add(area_id) %}
+        {%- if 'no-summary' in toks %}{%- do cur_areas.stub_no_summary.add(area_id) %}{% endif %}
+      {%- elif toks[2]=='nssa' %}
+        {%- do cur_areas.nssa.add(area_id) %}
+        {%- if 'no-summary' in toks %}{%- do cur_areas.nssa_no_summary.add(area_id) %}{% endif %}
+        {%- if 'no-redistribution' in toks %}{%- do cur_areas.nssa_no_redist.add(area_id) %}{% endif %}
+        {%- if 'default-information-originate' in toks %}{%- do cur_areas.nssa_dio.add(area_id) %}{% endif %}
+      {%- elif toks[2]=='virtual-link' and toks|length >= 4 %}
+        {%- set rid = toks[3] %}
+        {%- do cur_vls.items.append({'area': area_id, 'rid': rid}) %}
+      {%- endif %}
+    {%- endif %}
+  {%- endif %}
+
+  {# default-information originate #}
+  {%- if L.startswith('default-information originate') %}
+    {%- set cur_definfo.orig = True %}
+  {%- elif L == 'no default-information originate' %}
+    {%- set cur_definfo.orig = False %}
+  {%- endif %}
+{%- endfor %}
+
+{# Parse interface sections for ip ospf knobs #}
+{%- set cur_if = namespace(inf=None, seen=set(), cfg={}) %}
+{%- for raw in if_lines %}
+  {%- set L = (raw[2:] if raw.startswith('- ') else raw) | trim %}
+  {%- if not L %}{% continue %}{% endif %}
+  {%- if L.startswith('interface ') %}
+    {%- set cur_if.inf = L.split()[1] %}
+    {%- do cur_if.seen.add(cur_if.inf) %}
+    {%- if cur_if.cfg.get(cur_if.inf) is none %}
+      {%- set _ = cur_if.cfg.update({cur_if.inf: {
+        'area': None, 'network': None, 'hello': None, 'dead': None,
+        'mtu_ignore': False, 'priority': None, 'bfd': False, 'has_any': False,
+        'cost': None, 'auth_type': 'none', 'md5_keys': set(), 'simple_key': None
+      }}) %}
+    {%- endif %}
+    {%- continue %}
+  {%- endif %}
+  {%- if cur_if.inf %}
+    {%- set rec = cur_if.cfg[cur_if.inf] %}
+    {%- if L.startswith('ip ospf area ') %}
+      {%- set _ = rec.update({'area': L.split()[3], 'has_any': True}) %}
+    {%- elif L.startswith('ip ospf network ') %}
+      {%- set _ = rec.update({'network': L.split()[3], 'has_any': True}) %}
+    {%- elif L.startswith('ip ospf hello-interval ') %}
+      {%- set _ = rec.update({'hello': L.split()[3], 'has_any': True}) %}
+    {%- elif L.startswith('ip ospf dead-interval ') %}
+      {%- set _ = rec.update({'dead': L.split()[3], 'has_any': True}) %}
+    {%- elif L == 'ip ospf mtu-ignore' %}
+      {%- set _ = rec.update({'mtu_ignore': True, 'has_any': True}) %}
+    {%- elif L.startswith('ip ospf priority ') %}
+      {%- set _ = rec.update({'priority': L.split()[3], 'has_any': True}) %}
+    {%- elif L == 'ip ospf bfd' %}
+      {%- set _ = rec.update({'bfd': True, 'has_any': True}) %}
+    {%- elif L.startswith('ip ospf cost ') %}
+      {%- set _ = rec.update({'cost': L.split()[3], 'has_any': True}) %}
+    {%- elif L == 'ip ospf authentication' %}
+      {%- set _ = rec.update({'auth_type': 'simple', 'has_any': True}) %}
+    {%- elif L == 'ip ospf authentication message-digest' %}
+      {%- set _ = rec.update({'auth_type': 'md5', 'has_any': True}) %}
+    {%- elif L.startswith('ip ospf authentication-key ') %}
+      {%- set _ = rec.update({'simple_key': 'SET', 'has_any': True}) %}
+    {%- elif L.startswith('ip ospf message-digest-key ') %}
+      {%- set toks = L.split() %}
+      {%- if toks|length >= 6 and toks[4]=='md5' %}
+        {%- do rec['md5_keys'].add(toks[3]) %}
+        {%- set _ = rec.update({'auth_type': 'md5', 'has_any': True}) %}
+      {%- endif %}
+    {%- endif %}
+  {%- endif %}
+{%- endfor %}
+
+{# ===================== RENDER / ENFORCE ===================== #}
+
+router ospf {{ pid }}
+  {%- if rid %}
+  router-id {{ rid }}
+  {%- endif %}
+
+  {%- if passive_default %}
+  passive-interface default
+  {%- else %}
+  no passive-interface default
+  {%- endif %}
+
+  {# Per-interface passive overrides (non-disruptive) #}
+  {%- for ifname, icfg in desired_if.items() %}
+    {%- set want_passive = icfg.get('passive') %}
+    {%- if passive_default %}
+      {%- if want_passive == 'False' %}
+  no passive-interface {{ ifname }}
+      {%- elif want_passive == 'True' %}
+  passive-interface {{ ifname }}
+      {%- elif ifname in cur_passive.no_passive and want_passive != 'False' %}
+  passive-interface {{ ifname }}
+      {%- endif %}
+    {%- else %}
+      {%- if want_passive == 'True' %}
+  passive-interface {{ ifname }}
+      {%- elif want_passive == 'False' %}
+  no passive-interface {{ ifname }}
+      {%- elif ifname in cur_passive.passive and want_passive != 'True' %}
+  no passive-interface {{ ifname }}
+      {%- endif %}
+    {%- endif %}
+  {%- endfor %}
+
+  {# Redistribute knobs #}
+  {%- set want_redist = redist.keys() | list %}
+  {%- for proto, rcfg in redist.items() %}
+    {%- if proto == 'bgp' and rcfg.get('asn') %}
+  redistribute bgp {{ rcfg['asn'] }}{% if rcfg.get('route_map') %} route-map {{ rcfg['route_map'] }}{% endif %}
+    {%- else %}
+      {%- if rcfg.get('route_map') %}
+  redistribute {{ proto }} route-map {{ rcfg['route_map'] }}
+      {%- else %}
+  redistribute {{ proto }}
+      {%- endif %}
+    {%- endif %}
+  {%- endfor %}
+  {%- for common in ['connected','static','bgp','isis','rip'] %}
+    {%- if common not in want_redist %}
+  no redistribute {{ common }}
+    {%- endif %}
+  {%- endfor %}
+
+  {# default-information originate #}
+  {%- if definfo.get('originate') == 'True' %}
+  no default-information originate
+  default-information originate{% if definfo.get('always') == 'True' %} always{% endif %}{% if definfo.get('metric') %} metric {{ definfo['metric'] }}{% endif %}{% if definfo.get('metric_type') %} metric-type {{ definfo['metric_type'] }}{% endif %}{% if definfo.get('route_map') %} route-map {{ definfo['route_map'] }}{% endif %}
+  {%- else %}
+  no default-information originate
+  {%- endif %}
+
+  {%- if max_lsa %}
+  max-lsa {{ max_lsa }}
+  {%- else %}
+  no max-lsa
+  {%- endif %}
+
+  {%- if distance %}
+  distance ospf {{ distance }}
+  {%- endif %}
+
+  {%- if log_adj %}
+  log-adjacency-changes
+  {%- else %}
+  no log-adjacency-changes
+  {%- endif %}
+
+  {%- if ref_bw %}
+  auto-cost reference-bandwidth {{ ref_bw }}
+  {%- endif %}
+
+  {# ---- AREA FLAGS: remove stale, add desired ---- #}
+  {%- set want_area_ids = desired_areas.keys() | list %}
+  {%- for a in (cur_areas.stub | list) %}
+    {%- if a not in want_area_ids or (desired_areas.get(a, {}).get('stub') != 'True') %}
+  no area {{ a }} stub
+    {%- endif %}
+  {%- endfor %}
+  {%- for a in (cur_areas.stub_no_summary | list) %}
+    {%- if a not in want_area_ids or not (desired_areas.get(a, {}).get('stub') == 'True' and desired_areas.get(a, {}).get('no_summary') == 'True') %}
+  no area {{ a }} stub no-summary
+    {%- endif %}
+  {%- endfor %}
+  {%- for a in (cur_areas.nssa | list) %}
+    {%- if a not in want_area_ids or (desired_areas.get(a, {}).get('nssa', {}).get('enabled') != 'True') %}
+  no area {{ a }} nssa
+    {%- endif %}
+  {%- endfor %}
+  {%- for a in (cur_areas.nssa_no_summary | list) %}
+    {%- if a not in want_area_ids or not (desired_areas.get(a, {}).get('nssa', {}).get('enabled') == 'True' and desired_areas.get(a, {}).get('nssa', {}).get('no_summary') == 'True') %}
+  no area {{ a }} nssa no-summary
+    {%- endif %}
+  {%- endfor %}
+  {%- for a in (cur_areas.nssa_no_redist | list) %}
+    {%- if a not in want_area_ids or not (desired_areas.get(a, {}).get('nssa', {}).get('enabled') == 'True' and desired_areas.get(a, {}).get('nssa', {}).get('no_redistribution') == 'True') %}
+  no area {{ a }} nssa no-redistribution
+    {%- endif %}
+  {%- endfor %}
+  {%- for a in (cur_areas.nssa_dio | list) %}
+    {%- if a not in want_area_ids or not (desired_areas.get(a, {}).get('nssa', {}).get('enabled') == 'True' and desired_areas.get(a, {}).get('nssa', {}).get('default_information_originate') == 'True') %}
+  no area {{ a }} nssa default-information-originate
+    {%- endif %}
+  {%- endfor %}
+
+  {%- for a, acfg in desired_areas.items() %}
+    {%- if acfg.get('stub') == 'True' %}
+      {%- if acfg.get('no_summary') == 'True' %}
+  area {{ a }} stub no-summary
+      {%- else %}
+  area {{ a }} stub
+      {%- endif %}
+    {%- elif acfg.get('nssa', {}).get('enabled') == 'True' %}
+  area {{ a }} nssa{% if acfg.get('nssa', {}).get('no_summary') == 'True' %} no-summary{% endif %}{% if acfg.get('nssa', {}).get('no_redistribution') == 'True' %} no-redistribution{% endif %}{% if acfg.get('nssa', {}).get('default_information_originate') == 'True' %} default-information-originate{% endif %}
+    {%- endif %}
+  {%- endfor %}
+
+  {# ---- VIRTUAL LINKS: enforce ---- #}
+  {%- set have_vl = [] %}
+  {%- for vl in desired_vls %}
+    {%- set area = vl.get('area') %}
+    {%- set rid2 = vl.get('router_id') or vl.get('rid') %}
+    {%- if area and rid2 %}
+  area {{ area }} virtual-link {{ rid2 }}{% if vl.get('hello_interval') %} hello-interval {{ vl['hello_interval'] }}{% endif %}{% if vl.get('dead_interval') %} dead-interval {{ vl['dead_interval'] }}{% endif %}{% if vl.get('retransmit_interval') %} retransmit-interval {{ vl['retransmit_interval'] }}{% endif %}{% if vl.get('transmit_delay') %} transmit-delay {{ vl['transmit_delay'] }}{% endif %}
+      {%- if vl.get('authentication', {}).get('type') == 'simple' %}
+  area {{ area }} virtual-link {{ rid2 }} authentication
+        {%- if vl['authentication'].get('key') %}
+  area {{ area }} virtual-link {{ rid2 }} authentication-key {{ vl['authentication']['key'] }}
+        {%- endif %}
+      {%- elif vl.get('authentication', {}).get('type') == 'md5' %}
+  area {{ area }} virtual-link {{ rid2 }} authentication message-digest
+        {%- if vl['authentication'].get('key_id') and vl['authentication'].get('key') %}
+  area {{ area }} virtual-link {{ rid2 }} message-digest-key {{ vl['authentication']['key_id'] }} md5 {{ vl['authentication']['key'] }}
+        {%- endif %}
+      {%- else %}
+  no area {{ area }} virtual-link {{ rid2 }} authentication
+      {%- endif %}
+      {%- do have_vl.append(area ~ '|' ~ rid2) %}
+    {%- endif %}
+  {%- endfor %}
+
+  {%- for cv in cur_vls.items %}
+    {%- set key = cv.area ~ '|' ~ cv.rid %}
+    {%- if key not in have_vl %}
+  no area {{ cv.area }} virtual-link {{ cv.rid }}
+    {%- endif %}
+  {%- endfor %}
+exit
+
+{# ---- Per-interface configuration & cleanup ---- #}
+{%- set wanted_ifnames = desired_if.keys() %}
+
+{%- for ifname, icfg in desired_if.items() %}
+interface {{ ifname }}
+  {%- if icfg.get('area') %}
+  ip ospf area {{ icfg['area'] }}
+  {%- else %}
+  no ip ospf area
+  {%- endif %}
+
+  {%- if icfg.get('network_type') %}
+  ip ospf network {{ icfg['network_type'] }}
+  {%- else %}
+  no ip ospf network
+  {%- endif %}
+
+  {%- if icfg.get('hello_interval') %}
+  ip ospf hello-interval {{ icfg['hello_interval'] }}
+  {%- else %}
+  no ip ospf hello-interval
+  {%- endif %}
+
+  {%- if icfg.get('dead_interval') %}
+  ip ospf dead-interval {{ icfg['dead_interval'] }}
+  {%- else %}
+  no ip ospf dead-interval
+  {%- endif %}
+
+  {%- if icfg.get('mtu_ignore') == 'True' %}
+  ip ospf mtu-ignore
+  {%- else %}
+  no ip ospf mtu-ignore
+  {%- endif %}
+
+  {%- if icfg.get('priority') %}
+  ip ospf priority {{ icfg['priority'] }}
+  {%- else %}
+  no ip ospf priority
+  {%- endif %}
+
+  {%- if icfg.get('bfd') == 'True' %}
+  ip ospf bfd
+  {%- else %}
+  no ip ospf bfd
+  {%- endif %}
+
+  {%- if icfg.get('cost') %}
+  ip ospf cost {{ icfg['cost'] }}
+  {%- else %}
+  no ip ospf cost
+  {%- endif %}
+
+  {# Authentication handling #}
+  {%- set auth = icfg.get('authentication', {}) %}
+  {%- if auth.get('type') == 'simple' %}
+  ip ospf authentication
+    {%- if auth.get('key') %}
+  ip ospf authentication-key {{ auth['key'] }}
+    {%- else %}
+  no ip ospf authentication-key
+    {%- endif %}
+  {%- elif auth.get('type') == 'md5' %}
+  ip ospf authentication message-digest
+    {%- if auth.get('key_id') and auth.get('key') %}
+  ip ospf message-digest-key {{ auth['key_id'] }} md5 {{ auth['key'] }}
+    {%- endif %}
+  {%- else %}
+  no ip ospf authentication
+  no ip ospf authentication-key
+  {%- endif %}
+exit
+{%- endfor %}
+
+{# Cleanup: interfaces that currently have OSPF but are NOT in YAML #}
+{%- for ifname, rec in cur_if.cfg.items() %}
+  {%- if rec.get('has_any') and ifname not in wanted_ifnames %}
+interface {{ ifname }}
+  no ip ospf area
+  no ip ospf network
+  no ip ospf hello-interval
+  no ip ospf dead-interval
+  no ip ospf mtu-ignore
+  no ip ospf priority
+  no ip ospf bfd
+  no ip ospf cost
+  no ip ospf authentication
+  no ip ospf authentication-key
+exit
+  {%- endif %}
+{%- endfor %}
+{%- endif %}
