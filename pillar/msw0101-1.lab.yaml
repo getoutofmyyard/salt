@@ -16,7 +16,7 @@ vlans:
   30:
     name: RackSubnet
   50:
-    name: GitHub-Test
+    name: GitHub-Testing
   4094:
     name: MLAG
 
