@@ -15,8 +15,8 @@ vlans:
     name: Development
   30:
     name: RackSubnet
-  50:
-    name: GitHub-Test
+  60:
+    name: Jenkins-Deploy
   4094:
     name: MLAG
 
