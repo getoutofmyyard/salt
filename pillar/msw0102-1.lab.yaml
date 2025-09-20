@@ -1,0 +1,470 @@
+hostname: msw0102-1.lab
+
+# --------------------------------------     ------------------------------------------------------------------------
+#           VLAN Parameters                                    VLAN Parameter Explanations
+# --------------------------------------     ------------------------------------------------------------------------
+# vlans:
+#   <int>:                                   <-- Define VLAN ID, e.g. '10'
+#     name: 'String                          <-- Arbitrary VLAN name
+#       
+
+vlans:
+  10:
+    name: Production
+  20:
+    name: Development
+  30:
+    name: RackSubnet
+  4094:
+    name: MLAG
+
+# --------------------------------------     ------------------------------------------------------------------------
+#         Interface Parameters                                  Interface Parameter Explanations
+# --------------------------------------     ------------------------------------------------------------------------
+# InterfaceName:                             <-- Name of the interface, e.g. 'Ethernet1' or 'GigabitEthernet0/0'
+#   shutdown:              'True/False'      <-- If True, interface is 'shutdown'. If False, interface is 'no shutdown'.
+#   description:           'String'          <-- Arbitrary interface description
+#   interface_type:        'layer[2-3]'      <-- Switched interface == 'layer2' and routed interface == 'layer3'
+#   switchport_mode:       'access/trunk'    <-- If interface_type == layer2, define whether port is in access (default) or trunk mode
+#   access_vlan:           'integer'         <-- If switchport_mode == 'access', define access VLAN for the port
+#   portfast:              'True/False'      <-- If interface_type == layer2, enable or disable Portfast
+#   bpduguard:             'True/False'      <-- If interface_type == layer2, enable or disable BPDUGuard
+#   rootguard:             'True/False'      <-- If interface_type == layer2, enable of disable RootGuard
+#   ip_address:            'x.x.x.x/xx'      <-- If interface_type == layer3, define interface IP address and prefix length
+#   ip_virtual_router:     'x.x.x.x'         <-- If interface type == layer3, define 'ip virtual-router address'
+#   ip_address_virtual:    'x.x.x.x/xx'      <-- If interface type == layer3, define 'ip address virtual'
+#   vrf:                   'String'          <-- If interface type == layer3, assign interface to VRF 'String'
+#   autostate:             'True/False'      <-- If interface is an SVI, 'True' enables autostate (default)
+#   mtu:                   'integer'         <-- Configure MTU
+#   channel_group:         'integer'         <-- Configure port channel group
+#   mlag:                  'integer'         <-- If interface is a port-channel, configure MLAG ID
+#   source_interface:      'Interface Name'  <-- VXLAN-specific. Define VTEP source interface, e.g. 'Loopback1'
+#   udp_port:              'integer'         <-- VXLAN-specific. Define UTP port for VXLAN encapsulation.
+#   vlans:                                   <-- VXLAN-specific. Define VLANs and associated VNIs.
+#     <int>:                                 <-- VXLAN-specific. Define VLAN ID to introduce into VXLAN (e.g. 10)
+#       vni:               'integer'         <-- VXLAN-specific. Define VNI of parent VLAN.
+
+interfaces:
+  Ethernet1:
+    shutdown:           'False'
+    description:        'spine1::Eth3'
+    interface_type:     'layer3'
+    ip_address:         '10.0.0.5/31'
+    mtu:                '2000'
+  Ethernet2:
+    shutdown:           'False'
+    description:        'spine2::Eth3'
+    interface_type:     'layer3'
+    ip_address:         '10.0.0.15/31'
+    mtu:                '2000'
+  Ethernet3:
+    shutdown:           'False'
+    description:        'spine3::Eth3'
+    interface_type:     'layer3'
+    ip_address:         '10.0.0.49/31'
+    mtu:                '2000'
+  Ethernet9:
+    shutdown:           'False'
+    interface_type:     'layer2'
+    switchport_mode:    'access'
+    channel_group:      '9'
+  Ethernet10:
+    shutdown:           'False'
+    interface_type:     'layer2'
+    switchport_mode:    'access'
+    channel_group:      '10'
+  Ethernet11:
+    shutdown:           'False'
+    description:        'Peer Link Child Interface'
+    interface_type:     'layer2'
+    switchport_mode:    'trunk'
+    channel_group:      '99'
+  Ethernet12:
+    shutdown:           'False'
+    description:        'Peer Link Child Interface'
+    interface_type:     'layer2'
+    switchport_mode:    'trunk'
+    channel_group:      '99'
+  Loopback1:
+    shutdown:           'False'
+    description:        'Router ID'
+    ip_address:         '10.255.1.5/32'
+  Loopback2:
+    shutdown:           'False'
+    description:        'VTEP'
+    ip_address:         '10.254.102.1/32'
+  Management1:
+    shutdown:           'False'
+    description:        'OOB Management'
+    vrf:                'management'
+    ip_address:         'dhcp'
+  Vlan10:
+    shutdown:           'False'
+    autostate:          'False'
+    description:        'Production'
+    ip_address_virtual: '192.168.1.1/24'
+  Vlan20:
+    shutdown:           'False'
+    autostate:          'False'
+    description:        'Development'
+    ip_address_virtual: '192.168.2.1/24'
+  Vlan30:
+    shutdown:           'False'
+    autostate:          'False'
+    description:        'Rack VLAN'
+    ip_address:         '192.168.4.2/24'
+    ip_virtual_router:  '192.168.4.1'
+  Vlan4094:
+    shutdown:           'False'
+    autostate:          'False'
+    description:        'MLAG VLAN'
+    ip_address:         '169.254.0.0/31'
+  Port-Channel9:
+    shutdown:           'False'
+    interface_type:     'layer2'
+    switchport_mode:    'access'
+    access_vlan:        '10'
+    mlag:               '9'
+    porfast:            'True'
+    bpduguard:          'True'
+    rootguard:          'True'
+  Port-Channel10:
+    shutdown:           'False'
+    interface_type:     'layer2'
+    switchport_mode:    'access'
+    access_vlan:        '10'
+    mlag:               '10'
+    portfast:           'True'
+    bpduguard:          'True'
+    rootguard:          'True'
+  Port-Channel99:
+    shutdown:           'False'
+    description:        'MLAG'
+    interface_type:     'layer2'
+    switchport_mode:    'trunk'
+    mtu:                '2000'
+  Vxlan1:
+    shutdown:           'False'
+    source_interface:   'Loopback2'
+    udp_port:           '4789'
+    vlans:
+      10:
+        vni: '10'
+      20:
+        vni: '20'
+
+
+# --------------------------------------     ------------------------------------------------------------------------
+#            VRF Parameters                                       VRF Parameter Explanations
+# --------------------------------------     ------------------------------------------------------------------------
+#
+# vrfs:
+#   - <String>                               <-- Define name of VRF to create
+#
+
+vrfs:
+  - management
+
+# --------------------------------------     ------------------------------------------------------------------------
+#            MLAG Parameters                                       MLAG Parameter Explanations
+# --------------------------------------     ------------------------------------------------------------------------
+# enabled               'True/False'         <-- If False, MLAG configuration is deleted from the device. Be careful!
+# domain_id             'String'             <-- MLAG domain ID. Must match between MLAG peers.
+# local_interface       'Interface Name'     <-- Local interface used to communicate with peer_address, e.g. "Vlan99"
+# peer_address          'IP Address'         <-- MLAG peer address in dotted-decimal format
+# peer_link             'Interface Name'     <-- Interface name of the MLAG peer link, e.g. "Port-Channel99"
+# heartbeat_interval:
+#   enabled:            'True/False'         <-- Default == 'True'
+#   interval:           '1000-30000'         <-- Heartbeat interval in milliseconds. Default == 4000. 
+# reload_delay:
+#   enabled:            'True/False'         <-- If True, enable reload delay for all non peer-link ports
+#   infinity:           'False'              <-- If True, keep non peer-link ports disabled after reboot
+#   seconds:            '300'                <-- Reload delay in seconds. Ignored if infinity = True
+#   lacp_standby:       'True/False'         <-- If True, force LACP to be in standby mode during reload-delay period
+#   non_mlag_ports:
+#     enabled:           'False'             <-- If True, enable reload_delay specifically for non-MLAG links
+#     infinity:          'False'
+#     seconds:           '30'
+
+mlag:
+  enabled:              'True'
+  domain_id:            '102'
+  local_interface:      'Vlan4094'
+  peer_address:         '169.254.0.1'
+  peer_link:            'Port-Channel99'
+  heartbeat_interval:
+    enabled:            'True'
+
+# --------------------------------------      -----------------------------------------------------------------------------
+#         Prefix List Parameters                                 Prefix List Parameter Explanations
+# --------------------------------------      -----------------------------------------------------------------------------
+# prefix_lists:
+#   myprefixlist:                             <-- Name of the prefix list
+#     10:                                     <-- Prefix list sequence number
+#       permit:          'True/False'         <-- If true, sequence is 'permit'. If False, it is ''deny'.
+#       prefix:          'x.x.x.x/xx'         <-- Prefix to match, e.g. '10.0.0.0/24'
+#       ge:              '1-32'               <-- Optional. Specify prefix lengths greater than or equal to 1-32
+#       le:              '1-32'               <-- Optional. Specify prefix lengths less than or equal to 1-32.
+#--------------------------------------------------------------------------------------------------------------------
+
+
+prefix_lists:
+  testprefixlist:
+    100:
+      permit:            'True'
+      prefix:            '0.0.0.0/0'
+      le:                '32'
+    110:
+      permit:            'Deny'
+      prefix:            '10.0.0.0/8'
+
+# --------------------------------------     ------------------------------------------------------------------------
+#         Route Map Parameters                                  Route Map  Parameter Explanations
+# --------------------------------------     ------------------------------------------------------------------------
+# route_maps:
+#   myroutemap:                               <-- Name of the route map
+#     10:                                     <-- Route map sequence number
+#       permit:          'True/False'         <-- If true, route map sequence is 'permit'. If False, it is ''deny'.
+#       match_address:                        <-- Match address based on prefix OR access list. Use only one.
+#         prefix_list:   'String'             <-- Match prefix list with name 'String'
+#         access_list:   'String'             <-- Match access list with name 'String'
+#       match_interface: 'String'             <-- Sequence will match based on local interface name, e.g. 'Loopback1'
+#       match_aspath:                         <-- Match based on as-path list OR as-path length. Use only one.
+#         list:          'String'             <-- Name of an as-path list to match
+#         length:                             <-- Match based on as-path length
+#           ge:          '0-4000'             <-- Greater than or equal to 'as-path length'
+#           le:          '0-4000'             <-- Less than or equal to 'as-path length'
+#           eq:          '0-4000'             <-- Equal to 'as-path-length'
+#       set_prepend:                          <-- Set as-path prepends
+#         asn:           '<ASN>'              <-- The ASN to prepend. Can be in asplain or asdot notation.
+#         repeat:        'Number'             <-- Number of times to prepend the ASN to the path, e.g. '2'           
+
+route_maps:
+  connected2bgp:
+    10:
+      permit:            'True'
+      match_interface:   'Loopback1'
+    20:
+      permit:            'True'
+      match_interface:   'Loopback2'
+    30:
+      permit:            'True'
+      match_interface:   'Vlan30'
+    100:
+      permit:            'False'
+
+# --------------------------------------     ------------------------------------------------------------------------
+#         Routing Parameters                                    Routing  Parameter Explanations
+# --------------------------------------     ------------------------------------------------------------------------
+# router:
+#   bgp:                                         <-- Routing protocol to use. Valid options are 'bgp' and 'ospf'.
+#     global_options:                            <-- Global BGP options
+#       asn_format:           'asdot/asplain'    <-- ASN display format.
+#       asn:                  '<asn>'            <-- Autonomous system number
+#       router_id:            'x.x.x.x'          <-- BGP router ID
+#       maximum_paths:        '1-128'            <-- Maximum paths for ECMP.
+#       redistribute:
+#         connected:                             <-- Redistribute connected routes
+#           route_map:        '<string>'         <-- Route map to filter redistributed routes. If empty or missing, redistribute all.
+#         static:                                <-- Redistribute static routes
+#           route_map:        '<string>'         <-- Route map to filter redistributed routes. If empty or missing, redistribute all.
+#         ospf:                                  <-- Redistribute OSPF routes
+#           instance_id:      '<num>'            <-- OSPF process ID for redistribution into BGP
+#           route_map:        '<string>'         <-- Route map to filter redistributed routes. If empty or missing, redistribute all.
+#     address_family:
+#       ipv4_unicast:                            <-- Address family. Possible values are 'ipv4_unicast', 'evpn', and 'ipv6_unicast'.
+#         global:                                <-- Name of the VRF to use. Default is 'global'.
+#           peer_groups:                         <-- List of peer groups
+#             group1:                            <-- Name of a peer group
+#               description:    'String'         <-- Peer group description
+#               remote_as:      '<asn>'          <-- Remote peer ASN
+#               timers:
+#                 hello:        '60'             <-- Adjust hello timers for this peer group. Default = '60'
+#                 hold:         '180'            <-- Adjust hold  timers for this peer group. Default = '180'
+#               update_source:  'Interface'      <-- Update source to 'Interface', e.g. 'Loopback1'
+#               bfd:            'True/False'     <-- If True, enable BFD for the peer
+#               ebgp_multihop:  '1-255'          <-- Enable ebgp multihop and set number of hops, e.g. '2'
+#               maximum_routes: '<num>'          <-- Maximum routes within range 0 (unlimited) to 4294967294
+#               send_community: 'True/False'     <-- If True, send extended communities
+#               route_map:
+#                 name:         'String'
+#                 direction:    'in/out'
+#               members:                         <-- Define members of the peer group
+#                 - 'x.x.x.x'                    <-- Neighbor IP to include in peer group
+#                 - 'x.x.x.x'
+#           neighbors:
+#             x.x.x.x:                           <-- IP address of a BGP peer
+#               description:                     <-- Peer description
+#               remote_as:                       <-- Remote peer ASN
+#               timers:
+#                 hello:        '60'             <-- Adjust hello timers for this peer. Default = '60'
+#                 hold:         '180'            <-- Adjust hold  timers for this peer. Default = '180'
+#               update_source:  'Interface'      <-- Update source to 'Interface', e.g. 'Loopback1'
+#               bfd:            'True/False'     <-- If True, enable BFD for the peer
+#               ebgp_multihop:  '1-255'          <-- Enable ebgp multihop and set number of hops, e.g. '2'
+#               maximum_routes: '<num>'          <-- Maximum routes within range 0 (unlimited) to 4294967294
+#               send_community: 'True'           <-- If True, send extended communities
+#               route_map:
+#                 name:         'String'         <-- Name of a route map to apply to the neighbor
+#                 direction:    'in/out'         <-- Direction in which to apply the route map
+#          vlan_aware_bundles:                   <-- EVPN VLAN bundle config
+#            default:                             
+#              rd:               'x.x.x.x:xx'    <-- Route distinguisher for EVPN VLAN bundle
+#              route_target:     
+#                both:           'True'          <-- If True, import and export the route target. Ignore in/out params when True.
+#                in:             'False'         <-- If True, import the route target. Ignored when 'both' == True.
+#                out:            'False'         <-- If True, export the route target. Ignored when 'both' == True.
+#                target:         'xx:xx'         <-- Route target
+#              vlans:                            <-- VLANs assigned to EVPN VLAN bundle
+#                - '10'
+#                - '20'
+#                - '30'
+#   ospf:
+#     global_options:
+#       process_id:              '<num>'         <-- OSPF process ID (required)
+#       router_id:               'x.x.x.x'       <-- OSPF router  ID
+#       passive_int_default:     'True/False'    <-- If True, all interfaces passive unless overridden below
+#       max_lsa:                 '<num>'         <-- Maximum LSAs
+#       distance:                '110'           <-- Administrative distance
+#       log_adjacency_changes:   'True/False'    <-- If True, log adjacency changes
+#       reference_bandwidth:     '<num>'         <-- Reference bandwidth in Mb/s
+#     default_information:
+#       originate:         'True'                <-- If True, inject default route
+#       always:            'False'               <-- If True, originate even without default in RIB
+#       metric:            '10'                  <-- Metric of advertised default route (optional)
+#       metric_type:       '2'                   <-- Designate Type 1 or Type 2 external OSPF route (optional)
+#     redistribute:
+#       connected:
+#         route_map:       'connected2ospf'
+#       static:
+#         route_map:       'static2ospf'
+#       bgp:
+#         asn:             '65535.101'         # Optional + EOS-specific
+#         route_map:       'bgp2ospf'
+#     areas:
+#       0.0.0.0:                               # Backbone
+#         # Area type flags
+#         stub:            'False'             # If True, area is stub
+#         no_summary:      'False'             # Valid when stub or nssa with no-summary
+#         nssa:                                   # NSSA controls (mutually exclusive with stub in practice)
+#           enabled:       'False'
+#           no_summary:    'False'
+#           no_redistribution: 'False'
+#           default_information_originate: 'False'
+#
+#         # Per-interface OSPF under this area (merged with top-level interfaces if both exist)
+#         interfaces:
+#           Ethernet1:
+#             passive:       'False'           # Override passive/default
+#             network_type:  'point-to-point'  # broadcast | point-to-point | non-broadcast
+#             hello_interval:'10'
+#             dead_interval: '40'
+#             mtu_ignore:    'True'
+#             priority:      '1'
+#             bfd:           'True'
+#             cost:          '10'
+#             authentication:                    # Optional per-interface auth
+#               type:        'none'             # none | simple | md5
+#               key:         ''                 # for simple
+#               key_id:      ''                 # for md5 (optional)
+#           Vlan100:
+#             passive:       'True'
+#
+#       0.0.0.1:
+#         stub:            'True'
+#         no_summary:      'True'
+#         interfaces:
+#           Ethernet2:
+#             passive:     'False'
+#             network_type:'broadcast'
+#
+#     # Direct interface-first layout (preferred in EOS).
+#     # These entries are merged with any matching entries under areas.*.interfaces.
+#     interfaces:
+#       Ethernet10:
+#         area:            '0.0.0.0'           # If set here, will be applied directly
+#         passive:         'False'
+#         network_type:    'point-to-point'
+#         hello_interval:  '1'
+#         dead_interval:   '3'
+#         mtu_ignore:      'False'
+#         priority:        '1'
+#         bfd:             'True'
+#         cost:            '20'
+#         authentication:
+#           type:          'md5'
+#           key_id:        '5'
+#           key:           'mySecretMd5Key'
+
+router:
+  bgp:
+    global_options:
+      asn_format:               'asdot'
+      asn:                      '65535.102'
+      router_id:                '10.255.1.5'
+      maximum_paths:            '4'
+      redistribute:
+        connected:
+          route_map:            'connected2bgp'
+    address_family:
+      ipv4_unicast:
+        global:
+          peer_groups:
+            evpn-rs:
+              remote_as:        '65535.100'
+              timers:
+                hello:          '1'
+                hold:           '3'
+              update_source:    'Loopback1'
+              ebgp_multihop:    '255'
+              send_community:   'True'
+              maximum_routes:   '0'
+              members:
+                10.255.1.7:
+                  description:  'evpn-1.lab'
+                10.255.1.8:
+                  description:  'evpn-2.lab'
+            spines:
+              bfd:              'True'
+              timers:
+                hello:          '1'
+                hold:           '3'
+              send_community:   'True'
+              maximum_routes:   '12000'
+              members:
+                - '10.0.0.4'
+                - '10.0.0.14'
+                - '10.0.0.48'
+          neighbors:
+            10.0.0.4:
+              remote_as:        '65535.1'
+              description:      'spine-1.lab'
+            10.0.0.14:
+              remote_as:        '65535.2'
+              description:      'spine-2.lab'
+            10.0.0.48:
+              remote_as:        '65535.3'
+              description:      'spine-3.lab'
+            169.254.0.1:
+              remote_as:        '65535.102'
+              description:      'msw0102-2.lab'
+              bfd:              'True'
+              send_community:   'True'
+              timers:
+                hello:          '1'
+                hold:           '3'
+          vlan_aware_bundles:
+            default:
+              rd:               '10.255.1.5:99'
+              route_target:
+                both:           'True'
+                in:             'False'
+                out:            'False'
+                target:         '1:99'
+              vlans:
+                - '10'
+                - '20'
+      evpn:
+        neighbors:
+          evpn-rs:
+            activate:           'True' 
