@@ -108,16 +108,19 @@ interfaces:
     vrf:                'management'
     ip_address:         'dhcp'
   Vlan10:
+    interface_type:     'layer3'
     shutdown:           'False'
     autostate:          'False'
     description:        'Production'
     ip_address_virtual: '192.168.1.1/24'
   Vlan20:
+    interface_type:     'layer3'
     shutdown:           'False'
     autostate:          'False'
     description:        'Development'
     ip_address_virtual: '192.168.2.1/24'
   Vlan30:
+    interface_type:     'layer3'
     shutdown:           'False'
     autostate:          'False'
     description:        'Rack VLAN'
