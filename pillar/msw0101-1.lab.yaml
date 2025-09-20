@@ -84,6 +84,18 @@ interfaces:
     switchport_mode:    'access'
     access_vlan:        '10'
     channel_group:      '10'
+  Ethernet11:
+    shutdown:           'False'
+    description:        'Peer Link Child Interface'
+    interface_type:     'layer2'
+    switchport_mode:    'trunk'
+    channel_group:      '99'
+  Ethernet12:
+    shutdown:           'False'
+    description:        'Peer Link Child Interface'
+    interface_type:     'layer2'
+    switchport_mode:    'trunk'
+    channel_group:      '99'
   Loopback1:
     shutdown:           'False'
     description:        'Router ID'
