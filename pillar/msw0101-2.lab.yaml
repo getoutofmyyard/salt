@@ -259,9 +259,6 @@ route_maps:
     40:
       permit:            'True'
       match_interface:   'Loopback2'
-    50:
-      permit:            'True'
-      match_interface:   'Vlan10'
     100:
       permit:            'False'
 
