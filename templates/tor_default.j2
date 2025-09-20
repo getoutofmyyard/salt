@@ -115,7 +115,7 @@ interface {{ interface }}
   {%- elif config.get('rootguard') and config.get('rootguard') == 'False' %}
   no spanning-tree guard root
   {%- endif %}
-{%- elif config.get('interface_type') == 'layer3' %}
+{%- elif config.get('interface_type') == 'layer3' or 'Vlan' in interface %}
   no switchport
   {%- if config.get('vrf') %}
   vrf {{ config['vrf'] }}
