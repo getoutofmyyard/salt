@@ -455,5 +455,5 @@ router:
                 - '100'
       evpn:
         neighbors:
-          evpn-rs:
+          evpn-client:
             activate:           'True' 
