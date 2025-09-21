@@ -115,8 +115,30 @@ interface {{ interface }}
   {%- elif config.get('rootguard') and config.get('rootguard') == 'False' %}
   no spanning-tree guard root
   {%- endif %}
-{%- elif config.get('interface_type') == 'layer3' or 'Vlan' in interface %}
+{%- elif config.get('interface_type') == 'layer3' %}
   no switchport
+  {%- if config.get('vrf') %}
+  vrf {{ config['vrf'] }}
+  {%- endif %}
+  {%- if config.get('ip_address') %}
+  ip address {{ config['ip_address'] }}
+  {%- endif %}
+  {%- if config.get('ip_address_virtual') %}
+  ip address virtual {{ config['ip_address_virtual'] }}
+  {%- endif %}
+  {%- if config.get('ip_virtual_router') %}
+  ip virtual-router address {{ config['ip_virtual_router'] }}
+  {%- endif %}
+  {%- if config.get('autostate') and config.get('autostate') == 'True' %}
+  autostate
+  {%- endif %}
+  {%- if config.get('autostate') and config.get('autostate') == 'False' %}
+  no autostate
+  {%- endif %}
+  {%- if config.get('mtu') %}
+  mtu {{ config['mtu'] }}
+  {%- endif %}
+{%- elif 'Vlan' in interface %}
   {%- if config.get('vrf') %}
   vrf {{ config['vrf'] }}
   {%- endif %}
