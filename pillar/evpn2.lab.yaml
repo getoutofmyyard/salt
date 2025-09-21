@@ -247,6 +247,9 @@ route_maps:
     40:
       permit:            'True'
       match_interface:   'Vlan10'
+    50:
+      permit:            'True'
+      match_interface:   'Vlan20'
     100:
       permit:            'False'
 
