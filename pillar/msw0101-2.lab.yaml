@@ -175,7 +175,6 @@ interfaces:
 
 vrfs:
   - management
-  - testvrf
 
 # --------------------------------------     ------------------------------------------------------------------------
 #            MLAG Parameters                                       MLAG Parameter Explanations

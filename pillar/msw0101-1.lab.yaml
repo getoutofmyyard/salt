@@ -177,11 +177,6 @@ interfaces:
 
 vrfs:
   - management
-  - testvrf
-  - anothertest
-  - kyle
-  - rohan
-  - jared
 
 # --------------------------------------     ------------------------------------------------------------------------
 #            MLAG Parameters                                       MLAG Parameter Explanations
