@@ -244,6 +244,9 @@ route_maps:
     30:
       permit:            'True'
       match_interface:   'Loopback2'
+    40:
+      permit:            'True'
+      match_interface:   'Vlan10'
     100:
       permit:            'False'
 
@@ -433,6 +436,11 @@ router:
             10.0.0.42:
               remote_as:        '65535.3'
               description:      'spine-3.lab'
+            192.168.100.10:
+              remote_as:        '65535.200'
+              description:      'pfSense'
+              bfd:              'True'
+              send_community:   'True'
             169.254.0.0:
               remote_as:        '65535.100'
               description:      'evpn1.lab'

@@ -433,6 +433,11 @@ router:
             10.0.0.40:
               remote_as:        '65535.3'
               description:      'spine-3.lab'
+            192.168.100.10:
+              remote_as:        '65535.200'
+              description:      'pfSense'
+              bfd:              'True'
+              send_community:   'True'
             169.254.0.1:
               remote_as:        '65535.100'
               description:      'evpn2.lab'
