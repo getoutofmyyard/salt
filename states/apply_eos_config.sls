@@ -1,6 +1,6 @@
 {% set hostname  = grains.get('id') %}
 
-{%- if "msw" in hostname or "evpn" in hostname  %}
+{%- if "leaf" in hostname or "evpn" in hostname  %}
 Distribute Pillar Data to Switch:
   file.managed:
     - name: /tmp/{{ hostname }}.yaml
