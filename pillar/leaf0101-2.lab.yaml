@@ -1,4 +1,4 @@
-hostname: msw0102-1.lab
+hostname: leaf0101-2.lab
 
 # --------------------------------------     ------------------------------------------------------------------------
 #           VLAN Parameters                                    VLAN Parameter Explanations
@@ -47,31 +47,40 @@ vlans:
 interfaces:
   Ethernet1:
     shutdown:           'False'
-    description:        'spine1::Eth3'
+    description:        'spine1::Eth1'
     interface_type:     'layer3'
-    ip_address:         '10.0.0.5/31'
+    ip_address:         '10.0.0.3/31'
     mtu:                '2000'
   Ethernet2:
     shutdown:           'False'
-    description:        'spine2::Eth3'
+    description:        'spine2::Eth1'
     interface_type:     'layer3'
-    ip_address:         '10.0.0.15/31'
+    ip_address:         '10.0.0.13/31'
     mtu:                '2000'
   Ethernet3:
     shutdown:           'False'
-    description:        'spine3::Eth3'
+    description:        'spine3::Eth1'
     interface_type:     'layer3'
-    ip_address:         '10.0.0.49/31'
+    ip_address:         '10.0.0.47/31'
     mtu:                '2000'
-  Ethernet9:
+  Ethernet4:
     shutdown:           'False'
+    description:        'srv101::bond0'
     interface_type:     'layer2'
     switchport_mode:    'access'
-    channel_group:      '9'
+    access_vlan:        '30'
+    channel_group:      '4'
+  Ethernet8:
+    shutdown:           'False'
+    description:        'thisisatest'
+    interface_type:     'layer3'
+    ip_address:         '1.1.1.1/24'
   Ethernet10:
     shutdown:           'False'
+    description:        'Server'
     interface_type:     'layer2'
     switchport_mode:    'access'
+    access_vlan:        '10'
     channel_group:      '10'
   Ethernet11:
     shutdown:           'False'
@@ -88,11 +97,11 @@ interfaces:
   Loopback1:
     shutdown:           'False'
     description:        'Router ID'
-    ip_address:         '10.255.1.5/32'
+    ip_address:         '10.255.1.4/32'
   Loopback2:
     shutdown:           'False'
     description:        'VTEP'
-    ip_address:         '10.254.102.1/32'
+    ip_address:         '10.254.101.1/32'
   Management1:
     shutdown:           'False'
     description:        'OOB Management'
@@ -112,19 +121,19 @@ interfaces:
     shutdown:           'False'
     autostate:          'False'
     description:        'Rack VLAN'
-    ip_address:         '192.168.4.2/24'
-    ip_virtual_router:  '192.168.4.1'
+    ip_address:         '192.168.3.3/24'
+    ip_virtual_router:  '192.168.3.1'
   Vlan4094:
     shutdown:           'False'
     autostate:          'False'
     description:        'MLAG VLAN'
-    ip_address:         '169.254.0.0/31'
-  Port-Channel9:
+    ip_address:         '169.254.0.1/31'
+  Port-Channel4:
     shutdown:           'False'
     interface_type:     'layer2'
     switchport_mode:    'access'
-    access_vlan:        '10'
-    mlag:               '9'
+    access_vlan:        '30'
+    mlag:               '4'
     porfast:            'True'
     bpduguard:          'True'
     rootguard:          'True'
@@ -152,6 +161,8 @@ interfaces:
         vni: '10'
       20:
         vni: '20'
+      50:
+        vni: '50'
 
 
 # --------------------------------------     ------------------------------------------------------------------------
@@ -188,9 +199,9 @@ vrfs:
 
 mlag:
   enabled:              'True'
-  domain_id:            '102'
+  domain_id:            '101'
   local_interface:      'Vlan4094'
-  peer_address:         '169.254.0.1'
+  peer_address:         '169.254.0.0'
   peer_link:            'Port-Channel99'
   heartbeat_interval:
     enabled:            'True'
@@ -214,9 +225,6 @@ prefix_lists:
       permit:            'True'
       prefix:            '0.0.0.0/0'
       le:                '32'
-    110:
-      permit:            'Deny'
-      prefix:            '10.0.0.0/8'
 
 # --------------------------------------     ------------------------------------------------------------------------
 #         Route Map Parameters                                  Route Map  Parameter Explanations
@@ -243,13 +251,13 @@ route_maps:
   connected2bgp:
     10:
       permit:            'True'
-      match_interface:   'Loopback1'
-    20:
-      permit:            'True'
-      match_interface:   'Loopback2'
+      match_interface:   'Vlan30'
     30:
       permit:            'True'
-      match_interface:   'Vlan30'
+      match_interface:   'Loopback1'
+    40:
+      permit:            'True'
+      match_interface:   'Loopback2'
     100:
       permit:            'False'
 
@@ -400,8 +408,8 @@ router:
   bgp:
     global_options:
       asn_format:               'asdot'
-      asn:                      '65535.102'
-      router_id:                '10.255.1.5'
+      asn:                      '65535.101'
+      router_id:                '10.255.1.4'
       maximum_paths:            '4'
       redistribute:
         connected:
@@ -432,22 +440,22 @@ router:
               send_community:   'True'
               maximum_routes:   '12000'
               members:
-                - '10.0.0.4'
-                - '10.0.0.14'
-                - '10.0.0.48'
+                - '10.0.0.2'
+                - '10.0.0.12'
+                - '10.0.0.46'
           neighbors:
-            10.0.0.4:
+            10.0.0.2:
               remote_as:        '65535.1'
               description:      'spine-1.lab'
-            10.0.0.14:
+            10.0.0.12:
               remote_as:        '65535.2'
               description:      'spine-2.lab'
-            10.0.0.48:
+            10.0.0.46:
               remote_as:        '65535.3'
               description:      'spine-3.lab'
-            169.254.0.1:
-              remote_as:        '65535.102'
-              description:      'msw0102-2.lab'
+            169.254.0.0:
+              remote_as:        '65535.101'
+              description:      'msw0101-1.lab'
               bfd:              'True'
               send_community:   'True'
               timers:
@@ -455,7 +463,7 @@ router:
                 hold:           '3'
           vlan_aware_bundles:
             default:
-              rd:               '10.255.1.5:99'
+              rd:               '10.255.1.4:99'
               route_target:
                 both:           'True'
                 in:             'False'

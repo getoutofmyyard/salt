@@ -1,4 +1,4 @@
-hostname: msw0101-1.lab
+hostname: leaf0102-1.lab
 
 # --------------------------------------     ------------------------------------------------------------------------
 #           VLAN Parameters                                    VLAN Parameter Explanations
@@ -15,8 +15,6 @@ vlans:
     name: Development
   30:
     name: RackSubnet
-  60:
-    name: Jenkins-Deploy
   4094:
     name: MLAG
 
@@ -49,40 +47,31 @@ vlans:
 interfaces:
   Ethernet1:
     shutdown:           'False'
-    description:        'spine1::Eth1'
+    description:        'spine1::Eth3'
     interface_type:     'layer3'
-    ip_address:         '10.0.0.1/31'
+    ip_address:         '10.0.0.5/31'
     mtu:                '2000'
   Ethernet2:
     shutdown:           'False'
-    description:        'spine2::Eth1'
+    description:        'spine2::Eth3'
     interface_type:     'layer3'
-    ip_address:         '10.0.0.11/31'
+    ip_address:         '10.0.0.15/31'
     mtu:                '2000'
   Ethernet3:
     shutdown:           'False'
-    description:        'spine3::Eth1'
+    description:        'spine3::Eth3'
     interface_type:     'layer3'
-    ip_address:         '10.0.0.45/31'
+    ip_address:         '10.0.0.49/31'
     mtu:                '2000'
-  Ethernet4:
+  Ethernet9:
     shutdown:           'False'
-    description:        'srv101::bond0'
     interface_type:     'layer2'
     switchport_mode:    'access'
-    access_vlan:        '30'
-    channel_group:      '4'
-  Ethernet8:
-    shutdown:           'False'
-    description:        'thisisatest'
-    interface_type:     'layer3'
-    ip_address:         '1.1.1.1/24'
+    channel_group:      '9'
   Ethernet10:
     shutdown:           'False'
-    description:        'Server'
     interface_type:     'layer2'
     switchport_mode:    'access'
-    access_vlan:        '10'
     channel_group:      '10'
   Ethernet11:
     shutdown:           'False'
@@ -99,11 +88,11 @@ interfaces:
   Loopback1:
     shutdown:           'False'
     description:        'Router ID'
-    ip_address:         '10.255.1.3/32'
+    ip_address:         '10.255.1.5/32'
   Loopback2:
     shutdown:           'False'
     description:        'VTEP'
-    ip_address:         '10.254.101.1/32'
+    ip_address:         '10.254.102.1/32'
   Management1:
     shutdown:           'False'
     description:        'OOB Management'
@@ -123,19 +112,19 @@ interfaces:
     shutdown:           'False'
     autostate:          'False'
     description:        'Rack VLAN'
-    ip_address:         '192.168.3.2/24'
-    ip_virtual_router:  '192.168.3.1'
+    ip_address:         '192.168.4.2/24'
+    ip_virtual_router:  '192.168.4.1'
   Vlan4094:
     shutdown:           'False'
     autostate:          'False'
     description:        'MLAG VLAN'
     ip_address:         '169.254.0.0/31'
-  Port-Channel4:
+  Port-Channel9:
     shutdown:           'False'
     interface_type:     'layer2'
     switchport_mode:    'access'
-    access_vlan:        '30'
-    mlag:               '4'
+    access_vlan:        '10'
+    mlag:               '9'
     porfast:            'True'
     bpduguard:          'True'
     rootguard:          'True'
@@ -163,8 +152,6 @@ interfaces:
         vni: '10'
       20:
         vni: '20'
-      50:
-        vni: '50'
 
 
 # --------------------------------------     ------------------------------------------------------------------------
@@ -201,7 +188,7 @@ vrfs:
 
 mlag:
   enabled:              'True'
-  domain_id:            '101'
+  domain_id:            '102'
   local_interface:      'Vlan4094'
   peer_address:         '169.254.0.1'
   peer_link:            'Port-Channel99'
@@ -256,13 +243,13 @@ route_maps:
   connected2bgp:
     10:
       permit:            'True'
-      match_interface:   'Vlan30'
-    30:
-      permit:            'True'
       match_interface:   'Loopback1'
-    40:
+    20:
       permit:            'True'
       match_interface:   'Loopback2'
+    30:
+      permit:            'True'
+      match_interface:   'Vlan30'
     100:
       permit:            'False'
 
@@ -413,8 +400,8 @@ router:
   bgp:
     global_options:
       asn_format:               'asdot'
-      asn:                      '65535.101'
-      router_id:                '10.255.1.3'
+      asn:                      '65535.102'
+      router_id:                '10.255.1.5'
       maximum_paths:            '4'
       redistribute:
         connected:
@@ -445,22 +432,22 @@ router:
               send_community:   'True'
               maximum_routes:   '12000'
               members:
-                - '10.0.0.0'
-                - '10.0.0.10'
-                - '10.0.0.44'
+                - '10.0.0.4'
+                - '10.0.0.14'
+                - '10.0.0.48'
           neighbors:
-            10.0.0.0:
+            10.0.0.4:
               remote_as:        '65535.1'
               description:      'spine-1.lab'
-            10.0.0.10:
+            10.0.0.14:
               remote_as:        '65535.2'
               description:      'spine-2.lab'
-            10.0.0.44:
+            10.0.0.48:
               remote_as:        '65535.3'
               description:      'spine-3.lab'
             169.254.0.1:
-              remote_as:        '65535.101'
-              description:      'msw0101-2.lab'
+              remote_as:        '65535.102'
+              description:      'msw0102-2.lab'
               bfd:              'True'
               send_community:   'True'
               timers:
@@ -468,7 +455,7 @@ router:
                 hold:           '3'
           vlan_aware_bundles:
             default:
-              rd:               '10.255.1.3:99'
+              rd:               '10.255.1.5:99'
               route_target:
                 both:           'True'
                 in:             'False'
