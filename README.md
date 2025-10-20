@@ -3,7 +3,6 @@ This repo is a small part of a larger GitOps workflow to manage Arista EOS confi
 
 A number of Arista vEOS devices have been configured in a data center topology within GNS3. The topology is pictured below. The configurations found in /pillar are for Arista vEOS devices within this lab. A Salt minion extension has been installed and outbound connectivity from the lab to the internet has been configured. Therefore the Arista vEOS switches in this lab are able to be managed by the Salt master in AWS.
 
-<img width="2172" height="975" alt="image" src="https://github.com/user-attachments/assets/8f368d37-0376-4510-9455-96ca6f0c7558" />
+<img width="727" height="785" alt="image" src="https://github.com/user-attachments/assets/3c875fb8-675c-4de9-9f1e-90b3c17e4a0e" />
 
 
-The network uses VXLAN, EVPN, and MLAG like many modern data centers.
